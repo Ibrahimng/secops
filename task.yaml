@@ -1,0 +1,11 @@
+task:
+  name: "secops/ledger-negative-amount-idor"
+  version: "1.0.0"
+  language: "python"
+environment:
+  image: "python:3.11-slim"
+  setup_script: "setup.sh"
+entrypoint: "uvicorn Environment.app.server:app --host 127.0.0.1 --port 8000"
+grading:
+  test_command: "pytest Grader/test_harness.py"
+  static_command: "python3 Grader/static_check.py"
