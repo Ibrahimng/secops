@@ -12,7 +12,6 @@ def _setup_account(account_id: str, initial_balance: float, owner: str = None):
         owner = account_id
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # Initialize schema in case table isn't created yet
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS accounts (
             id TEXT PRIMARY KEY,
@@ -27,6 +26,73 @@ def _setup_account(account_id: str, initial_balance: float, owner: str = None):
     conn.commit()
     conn.close()
 
+# POST Endpoints Tests
+def test_create_account_success():
+    account_id = str(uuid.uuid4())
+    payload = {
+        "account_id": account_id,
+        "balance": 1000.00,
+        "owner": "user-test-create"
+    }
+    res = requests.post(f"{BASE_URL}/api/v1/accounts", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["account_id"] == account_id
+    assert data["balance"] == 1000.00
+    assert data["owner"] == "user-test-create"
+
+def test_create_account_negative_balance():
+    account_id = str(uuid.uuid4())
+    payload = {
+        "account_id": account_id,
+        "balance": -50.00,
+        "owner": "user-test-neg"
+    }
+    res = requests.post(f"{BASE_URL}/api/v1/accounts", json=payload)
+    assert res.status_code == 400
+
+def test_create_account_duplicate_blocked():
+    account_id = str(uuid.uuid4())
+    payload = {
+        "account_id": account_id,
+        "balance": 100.00,
+        "owner": "user-test-dup"
+    }
+    res1 = requests.post(f"{BASE_URL}/api/v1/accounts", json=payload)
+    assert res1.status_code == 200
+    res2 = requests.post(f"{BASE_URL}/api/v1/accounts", json=payload)
+    assert res2.status_code == 400
+
+# GET Endpoints Tests
+def test_get_account_success():
+    account_id = str(uuid.uuid4())
+    owner = "user-test-get"
+    _setup_account(account_id, 2500.00, owner)
+    
+    headers = {"X-User-ID": owner}
+    res = requests.get(f"{BASE_URL}/api/v1/accounts/{account_id}", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["account_id"] == account_id
+    assert data["balance"] == 2500.00
+    assert data["owner"] == owner
+
+def test_get_account_idor_blocked():
+    account_id = str(uuid.uuid4())
+    owner = "user-owner"
+    _setup_account(account_id, 2500.00, owner)
+    
+    headers = {"X-User-ID": "user-attacker"}
+    res = requests.get(f"{BASE_URL}/api/v1/accounts/{account_id}", headers=headers)
+    assert res.status_code == 403
+
+def test_get_account_not_found():
+    account_id = str(uuid.uuid4())
+    headers = {"X-User-ID": "user-random"}
+    res = requests.get(f"{BASE_URL}/api/v1/accounts/{account_id}", headers=headers)
+    assert res.status_code == 404
+
+# Withdrawal Endpoint Tests (Regression & Security)
 def test_regression_valid_withdrawal():
     """Verify that legitimate operations still work normally."""
     account_id = str(uuid.uuid4())
