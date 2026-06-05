@@ -1,0 +1,49 @@
+name: Security Scanners (Trivy & OWASP Dependency-Check)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  trivy:
+    name: Trivy FS Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (FS)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1' # Fail the build on high/critical security findings
+          severity: 'CRITICAL,HIGH'
+
+  owasp-dependency-check:
+    name: OWASP Dependency-Check Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'secops-ledger'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
+          args: '--scan Environment/requirements.txt --format HTML --format JSON --out reports'
+
+      - name: Upload Scan Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-reports
+          path: reports
