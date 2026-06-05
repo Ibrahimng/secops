@@ -30,7 +30,11 @@ class AccountCreateRequest(BaseModel):
     owner: str
 
 @router.post("/api/v1/accounts")
-async def create_account(payload: AccountCreateRequest):
+async def create_account(payload: AccountCreateRequest, x_user_id: str = Header(None, alias="X-User-ID")):
+    # IDOR Check: Ensure the authenticated user is creating an account for themselves
+    if payload.owner != x_user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     # Validation: Rejects negative initial balances
     if payload.balance < 0.0:
         raise HTTPException(status_code=400, detail="Initial balance cannot be negative")
